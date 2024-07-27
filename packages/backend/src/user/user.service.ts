@@ -105,4 +105,17 @@ export class UserService {
       return E.left(USER_NOT_FOUND);
     }
   }
+
+  async findUserById(userUid: string): Promise<O.None | O.Some<AuthUser>> {
+    try {
+      const user = await this.prisma.user.findUniqueOrThrow({
+        where: {
+          uid: userUid,
+        },
+      });
+      return O.some(user);
+    } catch (error) {
+      return O.none;
+    }
+  }
 }

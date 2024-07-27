@@ -12,6 +12,7 @@ import {
 } from 'src/types/AuthTokens';
 import * as argon2 from 'argon2';
 import { RESTError } from 'src/types/RESTError';
+import { INVALID_REFRESH_TOKEN, USER_NOT_FOUND } from 'src/errors';
 
 @Injectable()
 export class AuthService {
@@ -78,5 +79,35 @@ export class AuthService {
     if (!provider) return O.none;
 
     return O.some(provider);
+  }
+
+  async refreshAuthTokens(hashedRefreshToken: string, user: AuthUser) {
+    // Check to see user is valid
+    if (!user)
+      return E.left({
+        message: USER_NOT_FOUND,
+        statusCode: HttpStatus.NOT_FOUND,
+      });
+
+    // Check to see if the hashed refresh_token received from the client is the same as the refresh_token saved in the DB
+    const isTokenMatched = await argon2.verify(
+      user.refreshToken,
+      hashedRefreshToken,
+    );
+    if (!isTokenMatched)
+      return E.left({
+        message: INVALID_REFRESH_TOKEN,
+        statusCode: HttpStatus.NOT_FOUND,
+      });
+
+    // if tokens match, generate new pair of auth tokens
+    const generatedAuthTokens = await this.generateAuthTokens(user.uid);
+    if (E.isLeft(generatedAuthTokens))
+      return E.left({
+        message: generatedAuthTokens.left.message,
+        statusCode: generatedAuthTokens.left.statusCode,
+      });
+
+    return E.right(generatedAuthTokens.right);
   }
 }
